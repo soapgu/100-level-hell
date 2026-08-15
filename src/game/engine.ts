@@ -108,7 +108,7 @@ export function reachablePlatformX(previousX: number, width: number, roll: numbe
   return clamp(x, 12, CONFIG.width - width - 12);
 }
 
-type SoundEvent = "land" | "hurt" | "spring" | "break" | "over";
+export type SoundEvent = "land" | "hurt" | "spring" | "break" | "over";
 
 export class ShaftEngine {
   private ctx: CanvasRenderingContext2D;
@@ -139,7 +139,6 @@ export class ShaftEngine {
 
   getSnapshot() { return { ...this.snapshot }; }
   getPlatforms() { return this.platforms.map((platform) => ({ ...platform })); }
-  setBest(best: number) { this.snapshot.best = best; }
 
   private resetWorld() {
     this.platformId = 0;

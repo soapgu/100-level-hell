@@ -1,47 +1,53 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CONFIG, GameSnapshot, ShaftEngine } from "./engine";
+import { CONFIG, GameSnapshot, ShaftEngine, SoundEvent } from "./engine";
 
 const STORAGE_KEY = "shaft-best-floor-v1";
 const initial: GameSnapshot = { status: "ready", life: CONFIG.maxLife, floor: 0, best: 0, reason: null };
 
 function createBeep() {
   let audio: AudioContext | null = null;
-  return (event: "land" | "hurt" | "spring" | "break" | "over") => {
-    if (event === "land") return;
-    audio ??= new AudioContext();
-    const oscillator = audio.createOscillator();
-    const gain = audio.createGain();
-    const map = { hurt: [90, .12], spring: [520, .1], break: [155, .07], over: [62, .32] } as const;
-    const [frequency, duration] = map[event];
-    oscillator.type = event === "spring" ? "square" : "sawtooth";
-    oscillator.frequency.setValueAtTime(frequency, audio.currentTime);
-    gain.gain.setValueAtTime(.05, audio.currentTime);
-    gain.gain.exponentialRampToValueAtTime(.001, audio.currentTime + duration);
-    oscillator.connect(gain).connect(audio.destination);
-    oscillator.start(); oscillator.stop(audio.currentTime + duration);
+  const beep = (event: SoundEvent) => {
+    try {
+      audio ??= new AudioContext();
+      const map = { land: [150, .06], hurt: [90, .12], spring: [520, .1], break: [155, .07], over: [62, .32] } as const;
+      const [frequency, duration] = map[event];
+      const oscillator = audio.createOscillator();
+      const gain = audio.createGain();
+      oscillator.type = event === "spring" ? "square" : "sawtooth";
+      oscillator.frequency.setValueAtTime(frequency, audio.currentTime);
+      gain.gain.setValueAtTime(.05, audio.currentTime);
+      gain.gain.exponentialRampToValueAtTime(.001, audio.currentTime + duration);
+      oscillator.connect(gain).connect(audio.destination);
+      oscillator.start(); oscillator.stop(audio.currentTime + duration);
+    } catch {
+      // 不支持 Web Audio 时静音降级，音效异常不允许打断游戏循环
+      audio = null;
+    }
   };
+  const dispose = () => { audio?.close().catch(() => {}); audio = null; };
+  return { beep, dispose };
 }
 
 export function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<ShaftEngine | null>(null);
   const [state, setState] = useState(initial);
-  const soundRef = useRef<ReturnType<typeof createBeep> | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const stored = Number.parseInt(localStorage.getItem(STORAGE_KEY) ?? "0", 10) || 0;
-    soundRef.current = createBeep();
+    const sound = createBeep();
     const engine = new ShaftEngine(canvas, stored, (next) => {
       setState(next);
       if (next.best > stored) localStorage.setItem(STORAGE_KEY, String(next.best));
-    }, (event) => soundRef.current?.(event));
+    }, sound.beep);
     engineRef.current = engine;
+    setState(engine.getSnapshot());
     let animation = 0;
     const loop = (time: number) => { engine.frame(time); animation = requestAnimationFrame(loop); };
     animation = requestAnimationFrame(loop);
-    return () => { cancelAnimationFrame(animation); engineRef.current = null; };
+    return () => { cancelAnimationFrame(animation); engineRef.current = null; sound.dispose(); };
   }, []);
 
   const start = useCallback(() => engineRef.current?.start(), []);
@@ -75,7 +81,7 @@ export function Game() {
       <section className="machine" data-testid="game-shell" data-status={state.status} aria-label="是男人就下100层游戏机">
         <div className="hud">
           <div className="health-row">
-            <div><span className="hud-label">LIFE</span><div className="hearts" aria-label={`生命值 ${state.life}/${CONFIG.maxLife}`}>{Array.from({ length: 5 }, (_, index) => <i key={index} className={`heart ${state.life > index * 2 ? "active" : ""}`} />)}</div></div>
+            <div><span className="hud-label">LIFE</span><div className="hearts" aria-label={`生命值 ${state.life}/${CONFIG.maxLife}`}>{Array.from({ length: Math.ceil(CONFIG.maxLife / 2) }, (_, index) => <i key={index} className={`heart ${state.life > index * 2 ? "active" : ""}`} />)}</div></div>
           </div>
           <div className="floor-count"><span className="hud-label">FLOOR</span><span data-testid="floor-count">{String(state.floor).padStart(3, "0")}</span></div>
         </div>
@@ -97,12 +103,12 @@ export function Game() {
         <div className="key-row"><span><kbd>←</kbd> <kbd>A</kbd></span><span>向左移动</span></div>
         <div className="key-row"><span><kbd>→</kbd> <kbd>D</kbd></span><span>向右移动</span></div>
         <div className="key-row"><span><kbd>P</kbd></span><span>暂停 / 继续</span></div>
-        <div className="legend">
+          <div className="legend">
           <div className="legend-item"><i className="swatch" /><span>普通平台 · 恢复生命</span></div>
           <div className="legend-item"><i className="swatch spike" /><span>尖刺平台 · 扣除生命</span></div>
-          <div className="legend-item"><i className="swatch belt" /><span>传送带 · 改变位置</span></div>
+          <div className="legend-item"><i className="swatch belt" /><span>传送带 · 拖动位置，恢复生命</span></div>
           <div className="legend-item"><i className="swatch spring" /><span>跳板 · 向上弹起</span></div>
-          <div className="legend-item"><i className="swatch fragile" /><span>易碎平台 · 短暂落脚</span></div>
+          <div className="legend-item"><i className="swatch fragile" /><span>易碎平台 · 短暂停留，恢复生命</span></div>
         </div>
         <p className="best">本机纪录<br /><strong data-testid="best-count">{String(state.best).padStart(3, "0")}</strong> 层</p>
       </aside>
