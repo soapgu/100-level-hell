@@ -1,0 +1,133 @@
+:root {
+  --ink: #0b0b0a;
+  --coal: #161512;
+  --rust: #8f321d;
+  --ember: #e85d1c;
+  --cream: #f2dfb5;
+  --muted: #9f947c;
+  --yellow: #e9aa22;
+  --cyan: #52c7c9;
+}
+
+* { box-sizing: border-box; }
+
+html, body { min-height: 100%; }
+
+body {
+  margin: 0;
+  background:
+    linear-gradient(rgba(232, 93, 28, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(232, 93, 28, .035) 1px, transparent 1px),
+    #080807;
+  background-size: 8px 8px;
+  color: var(--cream);
+  font-family: "Courier New", "Noto Sans Mono CJK SC", monospace;
+}
+
+button { font: inherit; }
+
+.game-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto minmax(240px, 1fr);
+  gap: clamp(24px, 4vw, 72px);
+  align-items: center;
+  padding: 28px clamp(24px, 5vw, 84px);
+  overflow: hidden;
+}
+
+.intro { max-width: 430px; justify-self: end; }
+.eyebrow { margin: 0 0 14px; color: var(--ember); font-size: 12px; font-weight: 700; letter-spacing: .22em; }
+.title { margin: 0; font-size: clamp(42px, 5.2vw, 82px); line-height: .92; letter-spacing: -.08em; text-wrap: balance; }
+.title span { display: block; color: var(--ember); font-size: .56em; letter-spacing: .02em; margin-top: 12px; }
+.lede { color: var(--muted); font-size: 14px; line-height: 1.9; margin: 28px 0 0; max-width: 34em; }
+.ledge { width: 82px; height: 6px; margin-top: 26px; background: repeating-linear-gradient(90deg, var(--cream) 0 10px, var(--rust) 10px 16px); box-shadow: 0 4px 0 #3e1a12; }
+
+.machine {
+  position: relative;
+  width: min(46vh, 430px);
+  min-width: 320px;
+  border: 4px solid #403a31;
+  outline: 2px solid #0a0908;
+  background: #171511;
+  box-shadow: 0 0 0 5px #786e5e, 0 0 0 9px #201d19, 18px 24px 0 rgba(0,0,0,.42);
+}
+
+.machine::before, .machine::after { content: ""; position: absolute; width: 7px; height: 7px; background: #0a0908; border: 2px solid #8f826e; z-index: 5; }
+.machine::before { left: 6px; top: 6px; }
+.machine::after { right: 6px; top: 6px; }
+
+.hud {
+  height: 50px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 3px solid #090908;
+  background: #242019;
+}
+.hud-label { display: block; color: var(--muted); font-size: 8px; letter-spacing: .15em; }
+.health-row { display: flex; align-items: center; gap: 8px; }
+.hearts { display: flex; gap: 3px; min-width: 88px; }
+.heart { width: 13px; height: 12px; background: #3b3028; clip-path: polygon(50% 100%, 0 38%, 0 12%, 25% 0, 50% 18%, 75% 0, 100% 12%, 100% 38%); }
+.heart.active { background: var(--ember); }
+.floor-count { text-align: right; font-weight: 900; font-size: 25px; line-height: .8; color: var(--cream); }
+
+.screen { position: relative; background: #050504; aspect-ratio: 9 / 16; overflow: hidden; }
+.screen canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+.scanlines { position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(0,0,0,.12) 3px 4px); mix-blend-mode: multiply; }
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  text-align: center;
+  background: rgba(5,5,4,.76);
+  z-index: 3;
+}
+.overlay-card { width: 100%; border: 2px solid var(--cream); padding: 26px 18px 22px; background: rgba(17,15,12,.94); box-shadow: 7px 7px 0 var(--rust); }
+.overlay-kicker { margin: 0 0 10px; font-size: 10px; color: var(--yellow); letter-spacing: .2em; }
+.overlay h2 { margin: 0; font-size: 30px; line-height: 1.1; }
+.overlay p { margin: 14px 0 20px; color: var(--muted); font-size: 11px; line-height: 1.7; }
+.start-button { border: 0; color: #110e0b; background: var(--cream); box-shadow: 4px 4px 0 var(--ember); padding: 12px 22px; font-weight: 900; cursor: pointer; text-transform: uppercase; }
+.start-button:hover, .start-button:focus-visible { color: #fff; background: var(--ember); outline: 2px solid var(--cream); outline-offset: 3px; }
+
+.machine-footer { display: flex; justify-content: space-between; align-items: center; min-height: 38px; padding: 8px 12px; color: #8f826e; font-size: 9px; letter-spacing: .12em; }
+.pause-button { color: var(--cream); border: 1px solid #5b5245; padding: 4px 8px; background: #171511; cursor: pointer; }
+.pause-button:disabled { opacity: .35; cursor: not-allowed; }
+
+.guide { max-width: 290px; justify-self: start; }
+.guide h2 { margin: 0 0 22px; color: var(--ember); font-size: 14px; letter-spacing: .14em; }
+.key-row { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+kbd { display: inline-grid; place-items: center; min-width: 32px; height: 30px; padding: 0 8px; border: 1px solid #7c705f; border-bottom-width: 4px; color: var(--cream); background: #211e19; }
+.legend { border-top: 1px solid #332e27; padding-top: 18px; margin-top: 26px; }
+.legend-item { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center; margin: 11px 0; color: var(--muted); font-size: 10px; }
+.swatch { height: 8px; background: var(--cream); box-shadow: 0 3px 0 #5f574c; }
+.swatch.spike { background: var(--rust); }
+.swatch.belt { background: repeating-linear-gradient(90deg, var(--yellow) 0 6px, #5d4013 6px 10px); }
+.swatch.spring { background: var(--cyan); }
+.swatch.fragile { background: #b59156; border-right: 10px solid #100e0c; }
+.best { margin-top: 26px; color: var(--cream); font-size: 13px; }
+.best strong { color: var(--yellow); font-size: 24px; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+@media (max-width: 980px) {
+  .game-page { grid-template-columns: 1fr auto; }
+  .intro { justify-self: end; }
+  .guide { display: none; }
+}
+
+@media (max-width: 700px) {
+  .game-page { display: block; padding: 28px 16px 44px; overflow: auto; }
+  .intro { margin: 0 auto 28px; text-align: center; }
+  .title { font-size: 48px; }
+  .lede { margin-left: auto; margin-right: auto; }
+  .ledge { margin-left: auto; margin-right: auto; }
+  .machine { width: min(88vw, 400px); min-width: 0; margin: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
