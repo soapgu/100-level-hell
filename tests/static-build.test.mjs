@@ -5,12 +5,16 @@ import test from "node:test";
 test("builds a GitHub Pages-ready static entry", async () => {
   const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
   assert.match(html, /<title>是男人就下100层｜Web 像素复刻<\/title>/);
+  assert.match(html, /viewport-fit=cover/);
   assert.match(html, /https:\/\/soapgu\.github\.io\/100-level-hell\/og\.png/);
   assert.match(html, /\/100-level-hell\/assets\/[^"']+\.js/);
   const script = html.match(/src="\/100-level-hell\/(assets\/[^"']+\.js)"/);
   assert.ok(script);
   const scriptUrl = new URL(`../dist/${script[1]}`, import.meta.url);
   await access(scriptUrl);
-  assert.match(await readFile(scriptUrl, "utf8"), /\/100-level-hell\/og\.png/);
+  const builtScript = await readFile(scriptUrl, "utf8");
+  assert.match(builtScript, /\/100-level-hell\/og\.png/);
+  assert.match(builtScript, /向左移动（触控）/);
+  assert.match(builtScript, /请将手机竖屏/);
   await access(new URL("../dist/og.png", import.meta.url));
 });
