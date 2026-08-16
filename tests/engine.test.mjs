@@ -1,6 +1,168 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CONFIG, advanceGenerationState, crossedPlatform, damageLife, difficultyAt, gameplayWeightsAt, healLife, isGameOver, nextFloor, platformTypeFor, reachablePlatformX, weightedPlatformType, weightsAt } from "../src/game/engine.ts";
+import { CONFIG, PLAYER_VISUAL, ShaftEngine, advanceGenerationState, beltDirection, beltVisualAt, centeredX, crossedPlatform, damageLife, difficultyAt, gameplayWeightsAt, healLife, horizontalVelocity, isGameOver, nextFloor, normalPlatformDashes, platformSurfaceY, platformTypeFor, reachablePlatformX, spikePlatformTeeth, springOffsetAt, weightedPlatformType, weightsAt } from "../src/game/engine.ts";
+
+function createMockCanvas() {
+  const noop = () => {};
+  const context = {
+    arc: noop,
+    beginPath: noop,
+    fill: noop,
+    fillRect: noop,
+    lineTo: noop,
+    moveTo: noop,
+    restore: noop,
+    save: noop,
+    scale: noop,
+    setLineDash: noop,
+    stroke: noop,
+    translate: noop,
+  };
+  return { getContext: () => context };
+}
+
+test("the widened playfield keeps initial game objects centered", () => {
+  assert.equal(CONFIG.width, 420);
+  assert.equal(CONFIG.height, 640);
+  assert.equal(centeredX(CONFIG.playerWidth), 201);
+  assert.equal(centeredX(96), 162);
+});
+
+test("normal platform dashes stay centered inside every generated width", () => {
+  for (let width = CONFIG.minPlatformWidth; width <= CONFIG.maxPlatformWidth; width++) {
+    const x = 137;
+    const dashes = normalPlatformDashes(x, width);
+    assert.ok(dashes.length > 0);
+    assert.ok(Math.round(dashes[0]) >= x + 5);
+    assert.ok(Math.round(dashes.at(-1)) + 9 <= x + width - 5);
+    const leftPadding = dashes[0] - x;
+    const rightPadding = x + width - (dashes.at(-1) + 9);
+    assert.ok(Math.abs(leftPadding - rightPadding) < 0.001);
+  }
+});
+
+test("spike teeth stay centered inside every generated platform width", () => {
+  for (let width = CONFIG.minPlatformWidth; width <= CONFIG.maxPlatformWidth; width++) {
+    const x = 137;
+    const teeth = spikePlatformTeeth(x, width);
+    assert.ok(teeth.length > 0);
+    assert.ok(Math.round(teeth[0]) >= x + 5);
+    assert.ok(Math.round(teeth.at(-1)) + 8 <= x + width - 5);
+    const leftPadding = teeth[0] - x;
+    const rightPadding = x + width - (teeth.at(-1) + 8);
+    assert.ok(Math.abs(leftPadding - rightPadding) < 0.001);
+  }
+});
+
+test("the larger player sprite stays aligned with its unchanged collision box", () => {
+  assert.equal(CONFIG.playerWidth, 18);
+  assert.equal(CONFIG.playerHeight, 24);
+  assert.equal(PLAYER_VISUAL.offsetX + PLAYER_VISUAL.width / 2, CONFIG.playerWidth / 2);
+  assert.equal(PLAYER_VISUAL.offsetY + PLAYER_VISUAL.height, CONFIG.playerHeight);
+
+  const leftEdge = 7 + PLAYER_VISUAL.offsetX;
+  const rightEdge = CONFIG.width - CONFIG.playerWidth - 7 + PLAYER_VISUAL.offsetX + PLAYER_VISUAL.width;
+  assert.ok(leftEdge >= 0);
+  assert.ok(rightEdge <= CONFIG.width);
+});
+
+test("spring animation offsets drive the same moving collision surface", () => {
+  assert.equal(springOffsetAt(0), 0);
+  assert.equal(springOffsetAt(0.1), 5);
+  assert.equal(springOffsetAt(0.2), -5);
+  assert.equal(springOffsetAt(0.32), 0);
+
+  const platform = { y: 200, type: "spring", springTime: 0.1 };
+  assert.equal(platformSurfaceY(platform), 205);
+  assert.equal(platformSurfaceY({ ...platform, springTime: 0.2 }), 195);
+  assert.equal(platformSurfaceY({ ...platform, type: "normal" }), 200);
+});
+
+test("spring holds the player, launches once, restores, and can trigger again", () => {
+  const sounds = [];
+  const engine = new ShaftEngine(createMockCanvas(), 0, () => {}, (sound) => sounds.push(sound), () => 0.5);
+  engine.start();
+  const spring = { id: 1, x: 150, y: 200, width: 96, type: "spring", broken: false, crumble: 0, springTime: 0, beltTime: 0 };
+  engine.platforms = [spring];
+  engine.player = { x: 160, y: 175, vy: 100, invulnerable: 0, facing: 1, landedOn: -1 };
+
+  engine.advance(CONFIG.step);
+  assert.equal(engine.player.vy, 0);
+  assert.equal(engine.player.landedOn, spring.id);
+  assert.deepEqual(sounds, ["spring"]);
+
+  engine.advance(0.18);
+  assert.equal(engine.player.vy, 0);
+  assert.equal(engine.player.landedOn, spring.id);
+  engine.advance(0.05);
+  assert.ok(engine.player.vy < 0);
+  assert.equal(engine.player.landedOn, -1);
+  assert.deepEqual(sounds, ["spring"]);
+
+  engine.advance(0.12);
+  assert.equal(spring.springTime, 0);
+  engine.player = { x: 160, y: spring.y - CONFIG.playerHeight - 1, vy: 100, invulnerable: 0, facing: 1, landedOn: -1 };
+  engine.advance(CONFIG.step);
+  assert.deepEqual(sounds, ["spring", "spring"]);
+});
+
+test("spring launch rises about 110 pixels under current gravity", () => {
+  const height = CONFIG.springVelocity ** 2 / (2 * CONFIG.gravity);
+  assert.ok(height >= 108 && height <= 113);
+});
+
+test("conveyor direction, input combination, and animation follow the same type", () => {
+  assert.equal(CONFIG.beltSpeed * 2, CONFIG.moveSpeed);
+  assert.equal(beltDirection("belt-left"), -1);
+  assert.equal(beltDirection("belt-right"), 1);
+  assert.equal(beltDirection("normal"), 0);
+  assert.equal(horizontalVelocity(0, "belt-left"), -84);
+  assert.equal(horizontalVelocity(0, "belt-right"), 84);
+  assert.equal(horizontalVelocity(1, "belt-right"), 252);
+  assert.equal(horizontalVelocity(-1, "belt-right"), -84);
+
+  assert.deepEqual(beltVisualAt(0, "belt-right"), { offset: 0, highlightIndex: 0 });
+  assert.deepEqual(beltVisualAt(7 / 60, "belt-right"), { offset: 7, highlightIndex: 1 });
+  assert.deepEqual(beltVisualAt(7 / 60, "belt-left"), { offset: 13, highlightIndex: 2 });
+});
+
+test("conveyor pushes continuously, heals and sounds once, then releases the player", () => {
+  const sounds = [];
+  const engine = new ShaftEngine(createMockCanvas(), 0, () => {}, (sound) => sounds.push(sound), () => 0.5);
+  engine.start();
+  const belt = { id: 1, x: 100, y: 200, width: 220, type: "belt-right", broken: false, crumble: 0, springTime: 0, beltTime: 0 };
+  engine.platforms = [belt];
+  engine.snapshot.life = 9;
+  engine.player = { x: 160, y: 175, vy: 100, invulnerable: 0, facing: 1, landedOn: -1 };
+
+  engine.advance(CONFIG.step);
+  assert.equal(engine.getSnapshot().life, 10);
+  assert.equal(engine.player.landedOn, belt.id);
+  assert.deepEqual(sounds, ["belt"]);
+  const landedX = engine.player.x;
+  engine.advance(0.2);
+  assert.ok(engine.player.x - landedX >= 16 && engine.player.x - landedX <= 18);
+  assert.deepEqual(sounds, ["belt"]);
+
+  const movingBeltTime = belt.beltTime;
+  engine.togglePause();
+  engine.advance(1);
+  assert.equal(belt.beltTime, movingBeltTime);
+  engine.togglePause();
+
+  engine.setKey("left", true);
+  const opposingX = engine.player.x;
+  engine.advance(0.1);
+  assert.ok(engine.player.x - opposingX <= -8 && engine.player.x - opposingX >= -9);
+  engine.setKey("left", false);
+
+  engine.player.x = belt.x + belt.width - CONFIG.playerWidth - 4;
+  engine.advance(0.25);
+  assert.equal(engine.player.landedOn, -1);
+  const releasedX = engine.player.x;
+  engine.advance(0.1);
+  assert.equal(engine.player.x, releasedX);
+});
 
 test("normal platforms heal without exceeding max life", () => {
   assert.equal(healLife(4), 5);
@@ -26,6 +188,55 @@ test("floor count never decreases and death checks both failure modes", () => {
   assert.equal(isGameOver(0, 100), true);
   assert.equal(isGameOver(5, CONFIG.height + 21), true);
   assert.equal(isGameOver(5, 300), false);
+});
+
+test("falling starts one frozen death transition before showing game over", () => {
+  const sounds = [];
+  const snapshots = [];
+  const engine = new ShaftEngine(createMockCanvas(), 0, (snapshot) => snapshots.push(snapshot), (sound) => sounds.push(sound), () => 0.5);
+  engine.start();
+  engine.snapshot.floor = 12;
+  engine.player.y = CONFIG.height + 21;
+  engine.advance(CONFIG.step);
+
+  assert.equal(engine.getSnapshot().status, "dying");
+  assert.equal(engine.getSnapshot().reason, "fell");
+  assert.equal(engine.getSnapshot().best, 12);
+  assert.deepEqual(sounds, ["over"]);
+  const frozenPlayer = { ...engine.player };
+  const frozenPlatforms = engine.getPlatforms();
+
+  engine.setKey("right", true);
+  engine.start();
+  engine.togglePause();
+  engine.advance(1.49);
+  assert.equal(engine.getSnapshot().status, "dying");
+  assert.deepEqual(engine.player, frozenPlayer);
+  assert.deepEqual(engine.getPlatforms(), frozenPlatforms);
+  assert.deepEqual(sounds, ["over"]);
+
+  engine.advance(0.01);
+  assert.equal(engine.getSnapshot().status, "gameover");
+  assert.equal(snapshots.at(-1).status, "gameover");
+});
+
+test("life depletion triggers one death cue and resets for the next game", () => {
+  const sounds = [];
+  const engine = new ShaftEngine(createMockCanvas(), 0, () => {}, (sound) => sounds.push(sound), () => 0.5);
+  engine.start();
+  engine.snapshot.life = 0;
+  engine.advance(CONFIG.step);
+  assert.equal(engine.getSnapshot().status, "dying");
+  assert.equal(engine.getSnapshot().reason, "life");
+  assert.deepEqual(sounds, ["over"]);
+
+  engine.advance(CONFIG.deathTransitionDuration);
+  engine.start();
+  assert.equal(engine.getSnapshot().status, "running");
+  assert.equal(engine.getSnapshot().reason, null);
+  engine.snapshot.life = 0;
+  engine.advance(CONFIG.step);
+  assert.deepEqual(sounds, ["over", "over"]);
 });
 
 test("difficulty rises smoothly but remains capped", () => {

@@ -45,7 +45,7 @@ button { font: inherit; }
 
 .machine {
   position: relative;
-  width: min(46vh, 430px);
+  width: min(54vh, 500px);
   min-width: 320px;
   border: 4px solid #403a31;
   outline: 2px solid #0a0908;
@@ -63,7 +63,7 @@ button { font: inherit; }
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: 12px;
-  padding: 8px 12px;
+  padding: 8px 26px;
   border-bottom: 3px solid #090908;
   background: #242019;
 }
@@ -74,7 +74,7 @@ button { font: inherit; }
 .heart.active { background: var(--ember); }
 .floor-count { text-align: right; font-weight: 900; font-size: 25px; line-height: .8; color: var(--cream); }
 
-.screen { position: relative; background: #050504; aspect-ratio: 9 / 16; overflow: hidden; }
+.screen { position: relative; background: #050504; overflow: hidden; }
 .screen canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
 .scanlines { position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(0,0,0,.12) 3px 4px); mix-blend-mode: multiply; }
 
@@ -89,6 +89,9 @@ button { font: inherit; }
   z-index: 3;
 }
 .overlay-card { width: 100%; border: 2px solid var(--cream); padding: 26px 18px 22px; background: rgba(17,15,12,.94); box-shadow: 7px 7px 0 var(--rust); }
+.overlay-card--poster { padding: 0; overflow: hidden; }
+.overlay-card--poster .overlay-card-body { padding: 16px 18px 20px; }
+.start-poster { display: block; width: 100%; height: auto; border-bottom: 2px solid var(--cream); }
 .overlay-kicker { margin: 0 0 10px; font-size: 10px; color: var(--yellow); letter-spacing: .2em; }
 .overlay h2 { margin: 0; font-size: 30px; line-height: 1.1; }
 .overlay p { margin: 14px 0 20px; color: var(--muted); font-size: 11px; line-height: 1.7; }
@@ -127,7 +130,7 @@ kbd { display: inline-grid; place-items: center; min-width: 32px; height: 30px; 
   .title { font-size: 48px; }
   .lede { margin-left: auto; margin-right: auto; }
   .ledge { margin-left: auto; margin-right: auto; }
-  .machine { width: min(88vw, 400px); min-width: 0; margin: auto; }
+  .machine { width: min(94vw, 466px); min-width: 0; margin: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }

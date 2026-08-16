@@ -1,32 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CONFIG, GameSnapshot, ShaftEngine, SoundEvent } from "./engine";
+import { createGameAudio } from "./audio";
+import { CONFIG, GameSnapshot, ShaftEngine } from "./engine";
 
 const STORAGE_KEY = "shaft-best-floor-v1";
+const POSTER_URL = `${import.meta.env.BASE_URL}og.png`;
 const initial: GameSnapshot = { status: "ready", life: CONFIG.maxLife, floor: 0, best: 0, reason: null };
-
-function createBeep() {
-  let audio: AudioContext | null = null;
-  const beep = (event: SoundEvent) => {
-    try {
-      audio ??= new AudioContext();
-      const map = { land: [150, .06], hurt: [90, .12], spring: [520, .1], break: [155, .07], over: [62, .32] } as const;
-      const [frequency, duration] = map[event];
-      const oscillator = audio.createOscillator();
-      const gain = audio.createGain();
-      oscillator.type = event === "spring" ? "square" : "sawtooth";
-      oscillator.frequency.setValueAtTime(frequency, audio.currentTime);
-      gain.gain.setValueAtTime(.05, audio.currentTime);
-      gain.gain.exponentialRampToValueAtTime(.001, audio.currentTime + duration);
-      oscillator.connect(gain).connect(audio.destination);
-      oscillator.start(); oscillator.stop(audio.currentTime + duration);
-    } catch {
-      // 不支持 Web Audio 时静音降级，音效异常不允许打断游戏循环
-      audio = null;
-    }
-  };
-  const dispose = () => { audio?.close().catch(() => {}); audio = null; };
-  return { beep, dispose };
-}
 
 export function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -37,11 +15,11 @@ export function Game() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const stored = Number.parseInt(localStorage.getItem(STORAGE_KEY) ?? "0", 10) || 0;
-    const sound = createBeep();
+    const sound = createGameAudio();
     const engine = new ShaftEngine(canvas, stored, (next) => {
       setState(next);
       if (next.best > stored) localStorage.setItem(STORAGE_KEY, String(next.best));
-    }, sound.beep);
+    }, sound.play);
     engineRef.current = engine;
     setState(engine.getSnapshot());
     let animation = 0;
@@ -68,6 +46,8 @@ export function Game() {
 
   const heading = state.status === "gameover" ? "挑战结束" : state.status === "paused" ? "暂停中" : "准备下井";
   const message = state.status === "gameover" ? (state.reason === "fell" ? "你消失在井底的黑暗里。" : "尖刺耗尽了你的生命。") : state.status === "paused" ? "喘口气，矿井不会等你太久。" : "从一块平台落向下一块。别被顶上去，也别掉得太急。";
+  const isReady = state.status === "ready";
+  const showOverlay = state.status === "ready" || state.status === "paused" || state.status === "gameover";
 
   return (
     <main className="game-page">
@@ -85,16 +65,19 @@ export function Game() {
           </div>
           <div className="floor-count"><span className="hud-label">FLOOR</span><span data-testid="floor-count">{String(state.floor).padStart(3, "0")}</span></div>
         </div>
-        <div className="screen">
+        <div className="screen" style={{ aspectRatio: `${CONFIG.width} / ${CONFIG.height}` }}>
           <canvas ref={canvasRef} width={CONFIG.width} height={CONFIG.height} role="img" aria-label="无尽矿井游戏画面" />
           <div className="scanlines" aria-hidden="true" />
-          {state.status !== "running" && <div className="overlay"><div className="overlay-card">
-            <p className="overlay-kicker">{state.status === "gameover" ? `本次到达 ${state.floor} 层` : "DIVE INTO THE SHAFT"}</p>
-            <h2>{heading}</h2><p>{message}</p>
-            <button className="start-button" type="button" onClick={state.status === "paused" ? pause : start}>{state.status === "paused" ? "继续下降" : state.status === "gameover" ? "再来一局" : "开始挑战"}</button>
+          {showOverlay && <div className="overlay"><div className={`overlay-card${isReady ? " overlay-card--poster" : ""}`}>
+            {isReady && <img className="start-poster" src={POSTER_URL} alt="" aria-hidden="true" />}
+            <div className="overlay-card-body">
+              <p className="overlay-kicker">{state.status === "gameover" ? `本次到达 ${state.floor} 层` : "DIVE INTO THE SHAFT"}</p>
+              <h2>{heading}</h2><p>{message}</p>
+              <button className="start-button" type="button" onClick={state.status === "paused" ? pause : start}>{state.status === "paused" ? "继续下降" : state.status === "gameover" ? "再来一局" : "开始挑战"}</button>
+            </div>
           </div></div>}
         </div>
-        <div className="machine-footer"><span>100 层不是终点</span><button className="pause-button" type="button" onClick={pause} disabled={state.status === "ready" || state.status === "gameover"}>{state.status === "paused" ? "继续 P" : "暂停 P"}</button></div>
+        <div className="machine-footer"><span>100 层不是终点</span><button className="pause-button" type="button" onClick={pause} disabled={state.status !== "running" && state.status !== "paused"}>{state.status === "paused" ? "继续 P" : "暂停 P"}</button></div>
         <output className="sr-only" data-testid="game-state">{state.status}:{state.life}:{state.floor}:{state.best}</output>
       </section>
 

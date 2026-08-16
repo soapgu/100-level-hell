@@ -9,5 +9,8 @@ test("builds a GitHub Pages-ready static entry", async () => {
   assert.match(html, /\/100-level-hell\/assets\/[^"']+\.js/);
   const script = html.match(/src="\/100-level-hell\/(assets\/[^"']+\.js)"/);
   assert.ok(script);
-  await access(new URL(`../dist/${script[1]}`, import.meta.url));
+  const scriptUrl = new URL(`../dist/${script[1]}`, import.meta.url);
+  await access(scriptUrl);
+  assert.match(await readFile(scriptUrl, "utf8"), /\/100-level-hell\/og\.png/);
+  await access(new URL("../dist/og.png", import.meta.url));
 });
